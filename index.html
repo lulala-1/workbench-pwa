@@ -175,6 +175,7 @@ button.danger{background:#fab1a0;color:#fff}
 /* ===== Insight ===== */
 .insight{background:linear-gradient(135deg,rgba(152,216,200,.08),rgba(255,183,197,.06));border-left:3px solid var(--mint);padding:12px 14px;border-radius:8px;margin-top:8px;font-size:13px}
 .insight .ic{font-size:15px;margin-right:4px}
+.streak-bar{background:linear-gradient(135deg,rgba(152,216,200,.08),rgba(255,183,197,.06));border-left:3px solid var(--mint);padding:12px 14px;border-radius:8px;margin-top:10px}
 
 /* ===== Word Card ===== */
 .word-card{background:rgba(152,216,200,.06);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px}
@@ -1106,7 +1107,7 @@ function makeStatItem(v,l){
 
 /* ========== Overview ========== */
 function renderOverview(c){
-  c.appendChild(makeBreadcrumb('工作台概览'));
+  c.appendChild(makeBreadcrumb('概览'));
   var card=makeCard('今日概览','📋');
   var todayStr=today();
 
@@ -1114,6 +1115,7 @@ function renderOverview(c){
   var todoList=load('todoList',[]);
   var todayTodos=todoList.filter(function(t){return t.date===todayStr});
   var todoDone=todayTodos.filter(function(t){return t.done}).length;
+  var todoAllDone=todayTodos.length>0&&todoDone===todayTodos.length;
 
   var sleepList=load('sleepList',[]);
   var lastSleep=sleepList.length?sleepList[sleepList.length-1]:null;
@@ -1124,26 +1126,63 @@ function renderOverview(c){
   var reviewList=load('reviewList',[]);
   var todayReview=reviewList.find(function(r){return r.date===todayStr});
 
+  // 可点击的统计卡片
+  function makeClickableStat(value,label,view,done){
+    var d=el('div',{className:'item',onclick:function(){showView(view)},style:'cursor:pointer;transition:.2s'});
+    d.onmouseenter=function(){d.style.background='rgba(152,216,200,.18)'};
+    d.onmouseleave=function(){d.style.background=''};
+    var v=el('div',{className:'v',text:value});
+    if(done===false) v.style.color='#f0a050';
+    d.appendChild(v);
+    d.appendChild(el('div',{className:'l',text:label}));
+    return d;
+  }
+
   var sg=el('div',{className:'summary-grid'});
-  sg.appendChild(makeStatItem(todoDone+'/'+todayTodos.length,'待办完成'));
-  sg.appendChild(makeStatItem(lastSleep?lastSleep.duration+'h':'--','昨晚睡眠'));
-  sg.appendChild(makeStatItem('¥'+todaySpent.toFixed(0),'今日支出'));
-  sg.appendChild(makeStatItem(todayReview?todayReview.stars+'⭐':'未复盘','今日复盘'));
+  sg.appendChild(makeClickableStat(todoDone+'/'+todayTodos.length,'待办完成','todo',todoAllDone));
+  sg.appendChild(makeClickableStat(lastSleep?lastSleep.duration+'h':'暂无记录','昨晚睡眠','sleep',lastSleep?true:false));
+  sg.appendChild(makeClickableStat('¥'+todaySpent.toFixed(0),'今日支出','finance',true));
+  sg.appendChild(makeClickableStat(todayReview?todayReview.stars+'⭐':'暂无记录','今日复盘','review',todayReview?true:false));
   card.appendChild(sg);
+
+  // 成长打卡简报
+  var studyLog=load('studyLog',{});
+  var engStreak=0;
+  var ed=new Date();
+  while(true){
+    var eds=ed.getFullYear()+'-'+pad(ed.getMonth()+1)+'-'+pad(ed.getDate());
+    if((studyLog.wordsDate===eds)||(studyLog.readDate===eds)||(studyLog.listenDate===eds)||(studyLog.speakDate===eds)){engStreak++;ed.setDate(ed.getDate()-1);}
+    else break;
+  }
+  var exprCheckins=load('expressionCheckins',[]);
+  var exprStreak=0;
+  var ed2=new Date();
+  while(true){
+    var eds2=ed2.getFullYear()+'-'+pad(ed2.getMonth()+1)+'-'+pad(ed2.getDate());
+    if(exprCheckins.some(function(c){return c.date===eds2&&c.done})){exprStreak++;ed2.setDate(ed2.getDate()-1);}
+    else break;
+  }
+  var streakBar=el('div',{className:'streak-bar'});
+  streakBar.appendChild(el('span',{text:'📈 成长打卡简报',style:'font-size:13px;font-weight:600;color:var(--text-2)'}));
+  var streakItems=el('div',{style:'display:flex;gap:12px;margin-top:6px'});
+  streakItems.appendChild(el('span',{text:'英语 '+engStreak+'天 🔥',style:'font-size:13px;color:var(--mint)'}));
+  streakItems.appendChild(el('span',{text:'表达 '+exprStreak+'天 🔥',style:'font-size:13px;color:var(--pink-d)'}));
+  streakBar.appendChild(streakItems);
+  card.appendChild(streakBar);
   c.appendChild(card);
 
-  // Quick links
+  // Quick links — 调整排序，设置通栏
   var lc=makeCard('快捷功能','⚡');
   var qg=el('div',{className:'quick-grid'});
   var links=[
-    {icon:'😴',label:'睡眠',view:'sleep'},
-    {icon:'🌸',label:'周期',view:'period'},
-    {icon:'💰',label:'财务',view:'finance'},
     {icon:'📚',label:'英语',view:'english'},
     {icon:'✅',label:'待办',view:'todo'},
     {icon:'📝',label:'复盘',view:'review'},
-    {icon:'🔥',label:'热点',view:'news'},
-    {icon:'⚙️',label:'设置',view:'settings'}
+    {icon:'🎙️',label:'表达',view:'expression'},
+    {icon:'😴',label:'睡眠',view:'sleep'},
+    {icon:'🌸',label:'周期',view:'period'},
+    {icon:'💰',label:'财务',view:'finance'},
+    {icon:'🔥',label:'热点',view:'news'}
   ];
   links.forEach(function(s){
     var card2=el('button',{className:'quick-card',onclick:function(){showView(s.view)}});
@@ -1153,6 +1192,13 @@ function renderOverview(c){
   });
   lc.appendChild(qg);
   c.appendChild(lc);
+
+  // 设置通栏卡片
+  var settRow=el('button',{className:'quick-card',onclick:function(){showView('settings')},style:'display:flex;flex-direction:row;align-items:center;gap:12px;text-align:left;padding:14px 18px;width:100%'});
+  settRow.appendChild(el('span',{className:'qc-icon',text:'⚙️',style:'font-size:26px;margin:0'}));
+  settRow.appendChild(el('div',{style:'flex:1',text:'设置'}));
+  settRow.appendChild(el('span',{text:'›',style:'font-size:20px;color:var(--text-3)'}));
+  c.appendChild(settRow);
 }
 
 /* ========== News ========== */

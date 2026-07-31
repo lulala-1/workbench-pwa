@@ -1,5 +1,5 @@
 // Service Worker - 个人全能工作台 PWA
-const CACHE_NAME = 'workbench-v17';
+const CACHE_NAME = 'workbench-v18';
 const ASSETS = [
   './',
   './index.html',
