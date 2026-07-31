@@ -139,7 +139,7 @@ button.danger{background:#fab1a0;color:#fff}
 .quick-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover);opacity:1}
 .quick-card .qc-icon{font-size:28px;margin-bottom:6px}
 .quick-card .qc-label{font-size:13px;font-weight:500}
-.dash-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 @media(max-width:680px){.dash-grid{grid-template-columns:1fr}}
 
 /* ===== Forms ===== */
@@ -1042,6 +1042,31 @@ function renderDashboard(c){
   studyMore.style.marginTop='8px';
   studyCard.appendChild(studyMore);
   dg.appendChild(studyCard);
+
+  // Expression summary
+  var exprCheckins=load('expressionCheckins',[]);
+  var todayStr2=today();
+  var todayCheckin=exprCheckins.find(function(c){return c.date===todayStr2});
+  var streak=0;
+  var d=new Date();
+  while(true){
+    var ds=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    if(exprCheckins.some(function(c){return c.date===ds&&c.done})){streak++;d.setDate(d.getDate()-1);}
+    else break;
+  }
+  var exprRecords=load('expressionRecords',[]);
+  var todayRecords=exprRecords.filter(function(r){return r.date===todayStr2}).length;
+  var exprCard=makeCard('表达','🎙️');
+  var eg=el('div',{className:'summary-grid'});
+  eg.appendChild(makeStatItem(todayCheckin&&todayCheckin.done?'✅ 已打卡':'未打卡','今日打卡'));
+  eg.appendChild(makeStatItem(streak+'天','连续打卡'));
+  eg.appendChild(makeStatItem(todayRecords+'次','今日练习'));
+  eg.appendChild(makeStatItem(exprRecords.length+'次','累计录音'));
+  exprCard.appendChild(eg);
+  var exprMore=el('button',{className:'ghost sm',text:'查看详情',onclick:function(){showView('expression')}});
+  exprMore.style.marginTop='8px';
+  exprCard.appendChild(exprMore);
+  dg.appendChild(exprCard);
 
   // Period summary
   var periodList=load('periodList',[]);
