@@ -1,0 +1,7 @@
+server.py
+netlify/
+netlify.toml
+workbench-pwa.zip
+netlify-workbench.zip
+*.log
+__pycache__/
