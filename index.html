@@ -248,6 +248,7 @@ button.danger{background:#fab1a0;color:#fff}
 .entry .meta{font-size:11px;color:var(--text-3)}
 .toast{position:fixed;top:70px;left:50%;transform:translateX(-50%);background:rgba(45,52,54,.85);color:#fff;padding:8px 22px;border-radius:20px;font-size:13px;z-index:300;animation:fadeIn .2s}
 @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:30px}
 
 /* ===== Mobile ===== */
@@ -1208,6 +1209,21 @@ function renderOverview(c){
 /* ========== News ========== */
 function renderNews(c){
   c.appendChild(makeBreadcrumb('今日热点'));
+
+  // 筛选下拉
+  var filterCard=makeCard('热点筛选','🔎');
+  var fg=el('div',{className:'form-group',style:'margin:0'});
+  fg.appendChild(el('label',{text:'分类筛选'}));
+  var sel=el('select',{id:'newsFilter',onchange:function(){renderNewsList()}});
+  sel.appendChild(el('option',{value:'all',text:'全部热点'}));
+  sel.appendChild(el('option',{value:'时政思辨',text:'🏛️ 时政思辨'}));
+  sel.appendChild(el('option',{value:'社会话题',text:'👥 社会话题'}));
+  sel.appendChild(el('option',{value:'休闲娱乐',text:'🎮 休闲娱乐'}));
+  fg.appendChild(sel);
+  filterCard.appendChild(fg);
+  c.appendChild(filterCard);
+
+  // 上区域：当日全网热点
   var card=makeCard('当日全网热点','🔥');
   var refresh=el('button',{className:'sm ghost refresh-btn',text:'刷新',onclick:function(){loadNews()}});
   card.querySelector('h2').appendChild(refresh);
@@ -1216,53 +1232,201 @@ function renderNews(c){
   card.appendChild(hotNews);
   c.appendChild(card);
 
-  var card2=makeCard('社会民生资讯','📰');
-  var socNews=el('div',{id:'socNews'});
-  socNews.appendChild(el('div',{className:'empty',text:'点击上方刷新获取资讯'}));
-  card2.appendChild(socNews);
-  c.appendChild(card2);
+  // 下区域：我的收藏素材
+  var favCard=makeCard('我的收藏素材','⭐');
+  var favList=el('div',{id:'favList'});
+  favCard.appendChild(favList);
+  c.appendChild(favCard);
 
   loadNews();
+  renderFavList();
+}
+
+// 新闻分类关键词
+var newsCategoryKeywords={
+  '时政思辨':['政治','政策','政府','外交','国防','军队','改革','经济','法律','国际','声明','主席','总理','省委','中央','政治局','一国两制','台海','两岸','主权'],
+  '社会话题':['社会','民生','火灾','事故','教育','就业','房价','医疗','交通','食品','安全','学生','家长','学校','打工人','工资','消费','养老','离婚','结婚','生育'],
+  '休闲娱乐':['明星','综艺','电影','电视剧','音乐','游戏','旅游','美食','宠物','体育','足球','篮球','奥运','演唱会','网红','直播','短视频','追剧','票房']
+};
+
+function categorizeNews(title){
+  for(var cat in newsCategoryKeywords){
+    var kws=newsCategoryKeywords[cat];
+    for(var i=0;i<kws.length;i++){
+      if(title.indexOf(kws[i])>=0) return cat;
+    }
+  }
+  return '社会话题';
+}
+
+var newsDataCache=[];
+
+function renderNewsList(){
+  var el1=document.getElementById('hotNews');
+  if(!el1||!newsDataCache.length) return;
+  var filter=document.getElementById('newsFilter')?document.getElementById('newsFilter').value:'all';
+  var filtered=filter==='all'?newsDataCache:newsDataCache.filter(function(x){return x.category===filter});
+  el1.innerHTML='';
+  if(filtered.length){
+    filtered.slice(0,20).forEach(function(x,i){
+      var d=el('div',{className:'news-item'});
+      d.style.padding='12px 0';
+      d.style.borderBottom='1px solid rgba(152,216,200,.15)';
+      d.style.cursor='pointer';
+      d.style.transition='.2s';
+      d.onmouseenter=function(){d.style.background='rgba(152,216,200,.06)'};
+      d.onmouseleave=function(){d.style.background=''};
+      // 标题可点击跳转
+      var titleLink=el('div',{style:'font-size:14px;font-weight:500;color:var(--text)',text:(i+1)+'. '+x.title});
+      titleLink.onclick=function(){openNewsDetail(x)};
+      d.appendChild(titleLink);
+      // 热度+分类
+      var meta=el('div',{style:'display:flex;gap:8px;align-items:center;margin-top:4px'});
+      meta.appendChild(el('span',{className:'muted',text:'🔥 '+x.hot}));
+      meta.appendChild(el('span',{className:'badge info',text:x.category,style:'font-size:10px'}));
+      var favBtn=el('span',{style:'font-size:16px;cursor:pointer;margin-left:auto',text:isFav(x.title)?'⭐':'☆'});
+      favBtn.onclick=function(e){e.stopPropagation();toggleFav(x)};
+      meta.appendChild(favBtn);
+      d.appendChild(meta);
+      // 长按弹窗
+      var pressTimer;
+      d.addEventListener('touchstart',function(){
+        pressTimer=setTimeout(function(){showNewsActionSheet(x)},500);
+      });
+      d.addEventListener('touchend',function(){clearTimeout(pressTimer)});
+      d.addEventListener('touchmove',function(){clearTimeout(pressTimer)});
+      d.oncontextmenu=function(e){e.preventDefault();showNewsActionSheet(x)};
+      el1.appendChild(d);
+    });
+  }else{
+    el1.appendChild(el('div',{className:'empty',text:'该分类暂无热点'}));
+  }
+}
+
+function openNewsDetail(item){
+  var url='https://www.baidu.com/s?wd='+encodeURIComponent(item.title);
+  window.open(url,'_blank');
+}
+
+// 收藏管理
+function isFav(title){
+  var favs=load('newsFavorites',[]);
+  return favs.some(function(f){return f.title===title});
+}
+
+function toggleFav(item){
+  var favs=load('newsFavorites',[]);
+  var idx=favs.findIndex(function(f){return f.title===item.title});
+  if(idx>=0){
+    favs.splice(idx,1);
+    toast('已取消收藏');
+  }else{
+    favs.push(item);
+    toast('已收藏');
+  }
+  save('newsFavorites',favs);
+  renderNewsList();
+  renderFavList();
+}
+
+function renderFavList(){
+  var el2=document.getElementById('favList');
+  if(!el2) return;
+  var favs=load('newsFavorites',[]);
+  el2.innerHTML='';
+  if(favs.length){
+    favs.forEach(function(x,i){
+      var d=el('div',{className:'news-item'});
+      d.style.padding='12px 0';
+      d.style.borderBottom='1px solid rgba(152,216,200,.15)';
+      var title=el('div',{style:'font-size:14px;font-weight:500;cursor:pointer',text:'⭐ '+(i+1)+'. '+x.title});
+      title.onclick=function(){openNewsDetail(x)};
+      d.appendChild(title);
+      var meta=el('div',{style:'display:flex;gap:8px;align-items:center;margin-top:4px'});
+      if(x.note) meta.appendChild(el('span',{className:'muted',text:'📝 '+x.note}));
+      var delBtn=el('span',{style:'font-size:14px;cursor:pointer;margin-left:auto;color:var(--text-3)',text:'🗑️'});
+      delBtn.onclick=function(e){e.stopPropagation();toggleFav(x)};
+      meta.appendChild(delBtn);
+      d.appendChild(meta);
+      el2.appendChild(d);
+    });
+  }else{
+    el2.appendChild(el('div',{className:'empty',text:'暂无收藏，长按热点标题可收藏'}));
+  }
+}
+
+// 长按弹窗
+function showNewsActionSheet(item){
+  var overlay=el('div',{id:'newsActionOverlay',style:'position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:200;display:flex;align-items:flex-end;justify-content:center'});
+  var sheet=el('div',{style:'background:#fff;width:100%;max-width:500px;border-radius:18px 18px 0 0;padding:20px;animation:slideUp .25s'});
+  // 标题
+  sheet.appendChild(el('div',{style:'font-size:15px;font-weight:600;margin-bottom:12px',text:item.title}));
+  // 收藏按钮
+  var favBtn=el('button',{className:isFav(item.title)?'':'ghost',style:'width:100%;margin-bottom:10px',text:isFav(item.title)?'⭐ 取消收藏':'☆ 收藏本条'});
+  favBtn.onclick=function(){toggleFav(item);overlay.remove()};
+  sheet.appendChild(favBtn);
+  // 观点输入
+  sheet.appendChild(el('div',{className:'form-group',style:'margin-bottom:10px'}));
+  var noteInput=el('textarea',{placeholder:'记录个人观点、思考思路...',style:'width:100%;min-height:60px'});
+  var existingNote='';
+  var favs=load('newsFavorites',[]);
+  var existing=favs.find(function(f){return f.title===item.title});
+  if(existing&&existing.note) noteInput.value=existing.note;
+  sheet.appendChild(noteInput);
+  // 保存笔记
+  var saveNoteBtn=el('button',{className:'ghost sm',style:'width:100%;margin-bottom:10px',text:'💾 保存笔记',onclick:function(){
+    var favs2=load('newsFavorites',[]);
+    var idx=favs2.findIndex(function(f){return f.title===item.title});
+    if(idx>=0){
+      favs2[idx].note=noteInput.value;
+      save('newsFavorites',favs2);
+      toast('笔记已保存');
+    }else{
+      item.note=noteInput.value;
+      favs2.push(item);
+      save('newsFavorites',favs2);
+      toast('已收藏并保存笔记');
+    }
+    renderFavList();
+    renderNewsList();
+  }});
+  sheet.appendChild(saveNoteBtn);
+  // 导入表达题库
+  var importBtn=el('button',{className:'pink sm',style:'width:100%;margin-bottom:10px',text:'📥 导入表达题库'});
+  importBtn.onclick=function(){
+    var imported=load('importedTopics',[]);
+    if(imported.some(function(t){return t.topic===item.title})){
+      toast('该话题已在题库中');
+      return;
+    }
+    imported.push({topic:item.title,category:'观点评述'});
+    save('importedTopics',imported);
+    toast('已导入表达练习题库');
+  };
+  sheet.appendChild(importBtn);
+  // 查看详情
+  var detailBtn=el('button',{className:'ghost',style:'width:100%;margin-bottom:10px',text:'📰 查看新闻详情',onclick:function(){openNewsDetail(item)}});
+  sheet.appendChild(detailBtn);
+  // 关闭
+  var closeBtn=el('button',{className:'ghost sm',style:'width:100%',text:'关闭',onclick:function(){overlay.remove()}});
+  sheet.appendChild(closeBtn);
+  overlay.appendChild(sheet);
+  overlay.onclick=function(e){if(e.target===overlay)overlay.remove()};
+  document.body.appendChild(overlay);
 }
 
 function loadNews(){
   var el1=document.getElementById('hotNews');
-  var el2=document.getElementById('socNews');
-  if(!el1||!el2)return;
+  if(!el1)return;
   toast('正在获取最新热点...');
   el1.innerHTML='';
   el1.appendChild(el('div',{className:'empty',text:'正在获取全网热点...'}));
-  el2.innerHTML='';
-  el2.appendChild(el('div',{className:'empty',text:'正在获取民生资讯...'}));
   fetch('./news.json?ts='+Date.now()).then(function(r){return r.json()}).then(function(data){
     var hotItems=data.hot||[];
-    var socItems=data.social||[];
-    el1.innerHTML='';
-    if(hotItems.length){
-      hotItems.slice(0,15).forEach(function(x,i){
-        var d=el('div',{className:'list-item'});
-        d.appendChild(el('b',{text:(i+1)+'. '+x.title}));
-        var m=el('div',{className:'muted'});
-        m.textContent='热度 '+x.hot;
-        d.appendChild(m);
-        el1.appendChild(d);
-      });
-    }else{
-      el1.appendChild(el('div',{className:'empty',text:'暂无数据'}));
-    }
-    el2.innerHTML='';
-    if(socItems.length){
-      socItems.slice(0,15).forEach(function(x,i){
-        var d=el('div',{className:'list-item'});
-        d.appendChild(el('b',{text:(i+1)+'. '+x.title}));
-        var m=el('div',{className:'muted'});
-        m.textContent='热度 '+x.hot;
-        d.appendChild(m);
-        el2.appendChild(d);
-      });
-    }else{
-      el2.appendChild(el('div',{className:'empty',text:'暂无数据'}));
-    }
+    newsDataCache=hotItems.map(function(x){
+      return {title:x.title,hot:x.hot,category:categorizeNews(x.title)};
+    });
+    renderNewsList();
     if(data.updated){
       var u=el('div',{className:'muted'});
       u.style.textAlign='center';
@@ -1273,8 +1437,6 @@ function loadNews(){
   }).catch(function(){
     el1.innerHTML='';
     el1.appendChild(el('div',{className:'empty',text:'暂无数据，请稍后重试'}));
-    el2.innerHTML='';
-    el2.appendChild(el('div',{className:'empty',text:'暂无数据，稍后重试'}));
   });
 }
 
@@ -2651,6 +2813,7 @@ function renderExpressionView(c){
   Object.keys(expressionTopics).forEach(function(cat){
     catSel.appendChild(el('option',{value:cat,text:cat}));
   });
+  catSel.appendChild(el('option',{value:'热点导入',text:'📥 热点导入'}));
   fgCat.appendChild(catSel);
   topicRow.appendChild(fgCat);
   topicCard.appendChild(topicRow);
@@ -2769,11 +2932,17 @@ function renderExpressionView(c){
 function expressionDrawTopic(){
   var cat=document.getElementById('exprTopicCat').value;
   var pool=[];
+  var imported=load('importedTopics',[]);
   if(cat==='all'){
     Object.keys(expressionTopics).forEach(function(k){pool=pool.concat(expressionTopics[k].map(function(t){return{topic:t,category:k}}))});
+    pool=pool.concat(imported.map(function(t){return{topic:t.topic,category:'热点导入'}}));
+  }else if(cat==='热点导入'){
+    pool=imported.map(function(t){return{topic:t.topic,category:'热点导入'}});
+    if(!pool.length){toast('暂无导入话题，长按热点可导入');return}
   }else{
     pool=expressionTopics[cat].map(function(t){return{topic:t,category:cat}});
   }
+  if(!pool.length){toast('该分类暂无话题');return}
   var pick=pool[Math.floor(Math.random()*pool.length)];
   expressionCurrentTopic=pick.topic;
   var display=document.getElementById('exprTopicDisplay');
