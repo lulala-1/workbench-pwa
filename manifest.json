@@ -1,13 +1,13 @@
 {
-  "name": "个人全能工作台",
-  "short_name": "工作台",
-  "description": "睡眠·热点·精读·周期·财务·单词·听力·口语 八大板块一站式管理",
+  "name": "齐的工作台",
+  "short_name": "齐工作台",
+  "description": "睡眠·热点·精读·周期·财务·英语学习·待办·复盘 一站式管理",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#f5f5f7",
-  "theme_color": "#6c5ce7",
+  "background_color": "#f0faf7",
+  "theme_color": "#98d8c8",
   "lang": "zh-CN",
   "icons": [
     {
