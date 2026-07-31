@@ -439,6 +439,11 @@ function initAll(){
 function today(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 function todayFull(){var d=new Date();return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日 周'+'日一二三四五六'[d.getDay()]}
 function pad(n){return String(n).padStart(2,'0')}
+function markStudy(type){
+  var log=load('studyLog',{});
+  log[type+'Date']=today();
+  save('studyLog',log);
+}
 function toast(msg){var t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(function(){t.remove()},1500)}
 function daysBetween(d1,d2){if(!d1||!d2)return 0;return Math.round((new Date(d2)-new Date(d1))/86400000)}
 function fmtDate(s){if(!s)return'';var d=new Date(s);return(d.getMonth()+1)+'/'+d.getDate()}
@@ -1006,12 +1011,36 @@ function renderDashboard(c){
   finCard.appendChild(finMore);
   dg.appendChild(finCard);
 
-  c.appendChild(dg);
+  // Study summary
+  var studyCard=makeCard('学习情况','📚');
+  var todayStr=today();
+  var wordDay=Math.floor(Date.now()/86400000);
+  var studyItems=[
+    {label:'今日单词',value:'30个'},
+    {label:'今日阅读',value:'1篇'},
+    {label:'今日听力',value:'1练'},
+    {label:'口语阶段',value:'阶段'+speakStage}
+  ];
+  // 如果本地有学习记录，显示真实进度
+  try{
+    var studyLog=load('studyLog',{});
+    if(studyLog.wordsDate===todayStr) studyItems[0].value='30个 ✅';
+    if(studyLog.readDate===todayStr) studyItems[1].value='1篇 ✅';
+    if(studyLog.listenDate===todayStr) studyItems[2].value='1练 ✅';
+    if(studyLog.speakDate===todayStr) studyItems[3].value='阶段'+speakStage+' ✅';
+  }catch(e){}
+  var stg=el('div',{className:'summary-grid'});
+  studyItems.forEach(function(si){stg.appendChild(makeStatItem(si.value,si.label));});
+  studyCard.appendChild(stg);
+  var studyMore=el('button',{className:'ghost sm',text:'去学习',onclick:function(){showView('english')}});
+  studyMore.style.marginTop='8px';
+  studyCard.appendChild(studyMore);
+  dg.appendChild(studyCard);
 
   // Period summary
   var periodList=load('periodList',[]);
+  var pc=makeCard('周期情况','🌸');
   if(periodList.length){
-    var pc=makeCard('周期摘要','🌸');
     var last=periodList[periodList.length-1];
     var cycles=[];
     for(var i=1;i<periodList.length;i++){cycles.push(daysBetween(periodList[i-1].start,periodList[i].start))}
@@ -1023,9 +1052,18 @@ function renderDashboard(c){
     var pg=el('div',{className:'summary-grid'});
     pg.appendChild(makeStatItem(avgCycle+'天','平均周期'));
     pg.appendChild(makeStatItem(countdown>=0?countdown+'天':'已过'+(-countdown)+'天','距下次'));
+    pg.appendChild(makeStatItem(last.start,'最近来潮'));
+    pg.appendChild(makeStatItem(periodList.length+'次','记录次数'));
     pc.appendChild(pg);
-    c.appendChild(pc);
+  }else{
+    pc.appendChild(el('div',{className:'empty',text:'暂无周期记录'}));
   }
+  var periodMore=el('button',{className:'ghost sm',text:'查看详情',onclick:function(){showView('period')}});
+  periodMore.style.marginTop='8px';
+  pc.appendChild(periodMore);
+  dg.appendChild(pc);
+
+  c.appendChild(dg);
 }
 
 function makeStatItem(v,l){
@@ -1802,6 +1840,7 @@ function renderWords(){
     wa.appendChild(el('p',{html:highlighted}));
   }
   toast('已刷新今日单词');
+  markStudy('words');
 }
 
 /* ========== English: Listening ========== */
@@ -1905,6 +1944,7 @@ function renderListening(){
     lt2.appendChild(el('p',{text:d.tips}));
   }
   toast('已刷新听力练习');
+  markStudy('listen');
 }
 
 /* ========== English: Speaking ========== */
@@ -2004,6 +2044,7 @@ function renderSpeaking(){
   if(sres)sres.innerHTML='';
 
   toast('已刷新口语练习');
+  markStudy('speak');
 }
 
 /* ========== English: Reading ========== */
@@ -2028,6 +2069,7 @@ function renderReadView(c){
   c.appendChild(sc);
 
   renderEnArticle();
+  markStudy('read');
 }
 
 function renderEnArticle(){
