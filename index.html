@@ -1456,6 +1456,18 @@ function renderSleepView(c){
   c.appendChild(makeBreadcrumb('睡眠记录'));
 
   var card=makeCard('睡眠记录','😴');
+
+  // 睡眠类型选择
+  var fg0=el('div',{className:'form-group'});
+  fg0.appendChild(el('label',{text:'睡眠类型'}));
+  var typeDiv=el('div',{id:'sleepType',style:'display:flex;gap:8px'});
+  var types=[{v:'night',t:'🌙 夜间睡眠'},{v:'nap',t:'☀️ 午休小憩'}];
+  types.forEach(function(t){
+    typeDiv.appendChild(el('span',{className:'level-btn','data-v':t.v,text:t.t}));
+  });
+  fg0.appendChild(typeDiv);
+  card.appendChild(fg0);
+
   var fg1=el('div',{className:'form-group'});
   fg1.appendChild(el('label',{text:'日期'}));
   var dateInput=el('input',{type:'date',id:'sleepDate',value:today()});
@@ -1465,13 +1477,21 @@ function renderSleepView(c){
   var row=el('div',{className:'row'});
   var fg2=el('div',{className:'form-group'});
   fg2.appendChild(el('label',{text:'入睡时间'}));
-  fg2.appendChild(el('input',{type:'time',id:'sleepStart'}));
+  var startInput=el('input',{type:'time',id:'sleepStart'});
+  startInput.addEventListener('change',updateSleepDur);
+  fg2.appendChild(startInput);
   row.appendChild(fg2);
   var fg3=el('div',{className:'form-group'});
   fg3.appendChild(el('label',{text:'起床时间'}));
-  fg3.appendChild(el('input',{type:'time',id:'sleepEnd'}));
+  var endInput=el('input',{type:'time',id:'sleepEnd'});
+  endInput.addEventListener('change',updateSleepDur);
+  fg3.appendChild(endInput);
   row.appendChild(fg3);
   card.appendChild(row);
+
+  // 实时时长显示
+  var durDisplay=el('div',{id:'sleepDurDisplay',className:'insight',style:'margin-bottom:12px;display:none'});
+  card.appendChild(durDisplay);
 
   var fg4=el('div',{className:'form-group'});
   fg4.appendChild(el('label',{text:'睡眠深浅状态'}));
@@ -1488,20 +1508,73 @@ function renderSleepView(c){
   var qDiv=el('div',{id:'sleepQuality'});
   var quals=[{v:'5',t:'⭐⭐⭐⭐⭐ 很好'},{v:'4',t:'⭐⭐⭐⭐ 好'},{v:'3',t:'⭐⭐⭐ 一般'},{v:'2',t:'⭐⭐ 较差'},{v:'1',t:'⭐ 很差'}];
   quals.forEach(function(q){
-    var span=el('span',{className:'level-btn','data-v':q.v,text:q.t});
-    qDiv.appendChild(span);
+    qDiv.appendChild(el('span',{className:'level-btn','data-v':q.v,text:q.t}));
   });
   fg5.appendChild(qDiv);
   card.appendChild(fg5);
 
+  // 快捷标签
   var fg6=el('div',{className:'form-group'});
-  fg6.appendChild(el('label',{text:'备注（可选）'}));
-  var noteInput=el('input',{type:'text',id:'sleepNote',placeholder:'如：熬夜、午休、运动后...'});
-  fg6.appendChild(noteInput);
+  fg6.appendChild(el('label',{text:'快捷标签（可多选）'}));
+  var tagDiv=el('div',{id:'sleepTags',style:'display:flex;flex-wrap:wrap;gap:6px'});
+  var tags=['熬夜','压力大','饮用咖啡','运动后','失眠'];
+  tags.forEach(function(t){
+    tagDiv.appendChild(el('span',{className:'level-btn','data-v':t,text:t,style:'font-size:12px;padding:6px 12px'}));
+  });
+  fg6.appendChild(tagDiv);
   card.appendChild(fg6);
+
+  var fg7=el('div',{className:'form-group'});
+  fg7.appendChild(el('label',{text:'备注（可选）'}));
+  var noteInput=el('input',{type:'text',id:'sleepNote',placeholder:'补充说明...'});
+  fg7.appendChild(noteInput);
+  card.appendChild(fg7);
+
+  // 生理阶段关联
+  var periodList=load('periodList',[]);
+  if(periodList.length){
+    var fg8=el('div',{className:'form-group'});
+    fg8.appendChild(el('label',{text:'关联生理阶段（可选）'}));
+    var periodSel=el('select',{id:'sleepPeriod'});
+    periodSel.appendChild(el('option',{value:'',text:'不关联'}));
+    var lastPeriod=periodList[periodList.length-1];
+    var daysSince=daysBetween(lastPeriod.start,today());
+    if(daysSince>=0&&daysSince<=7){
+      periodSel.appendChild(el('option',{value:'经期',text:'经期（第'+(daysSince+1)+'天）'}));
+    }
+    if(daysSince>7&&daysSince<=14){
+      periodSel.appendChild(el('option',{value:'卵泡期',text:'卵泡期（第'+(daysSince+1)+'天）'}));
+    }
+    if(daysSince>14&&daysSince<=21){
+      periodSel.appendChild(el('option',{value:'排卵期',text:'排卵期（第'+(daysSince+1)+'天）'}));
+    }
+    if(daysSince>21){
+      periodSel.appendChild(el('option',{value:'黄体期',text:'黄体期（第'+(daysSince+1)+'天）'}));
+    }
+    fg8.appendChild(periodSel);
+    card.appendChild(fg8);
+  }
 
   card.appendChild(el('button',{text:'保存记录',onclick:saveSleep}));
   c.appendChild(card);
+
+  // 睡眠目标设置
+  var goal=load('sleepGoal',8);
+  var gc=makeCard('睡眠目标设置','🎯');
+  var goalRow=el('div',{className:'row'});
+  var gg=el('div',{className:'form-group'});
+  gg.appendChild(el('label',{text:'目标睡眠时长（小时）'}));
+  var goalInput=el('input',{type:'number',id:'sleepGoalInput',value:goal,step:'0.5',min:'3',max:'12'});
+  gg.appendChild(goalInput);
+  goalRow.appendChild(gg);
+  gc.appendChild(goalRow);
+  gc.appendChild(el('button',{className:'ghost sm',text:'保存目标',onclick:function(){
+    var g=parseFloat(document.getElementById('sleepGoalInput').value)||8;
+    save('sleepGoal',g);
+    toast('目标已保存');
+    renderSleep();
+  }}));
+  c.appendChild(gc);
 
   // Stats card
   var sc=makeCard('睡眠数据概览','📊');
@@ -1521,25 +1594,53 @@ function renderSleepView(c){
   hc.appendChild(el('div',{id:'sleepHistory'}));
   c.appendChild(hc);
 
-  sleepDepth='';sleepQuality='';
+  sleepDepth='';sleepQuality='';sleepType='night';sleepSelectedTags=[];
+  setupLevels(typeDiv,function(v){sleepType=v});
   setupLevels(depthDiv,function(v){sleepDepth=v});
   setupLevels(qDiv,function(v){sleepQuality=v});
+  setupLevels(tagDiv,function(v){
+    var idx=sleepSelectedTags.indexOf(v);
+    if(idx>=0)sleepSelectedTags.splice(idx,1);
+    else sleepSelectedTags.push(v);
+  });
   renderSleep();
+}
+
+var sleepType='night';
+var sleepSelectedTags=[];
+
+function updateSleepDur(){
+  var s=document.getElementById('sleepStart').value;
+  var e=document.getElementById('sleepEnd').value;
+  var display=document.getElementById('sleepDurDisplay');
+  if(!s||!e){display.style.display='none';return}
+  var dur=calcSleepDur(s,e);
+  var goal=load('sleepGoal',8);
+  display.style.display='block';
+  var diff=Math.round((dur-goal)*10)/10;
+  var diffText=diff>=0?'达标 +'+diff+'h':'不足 '+diff+'h';
+  var diffColor=diff>=0?'var(--mint)':'#f0a050';
+  display.innerHTML='';
+  display.appendChild(el('span',{text:'⏱️ 睡眠时长：'+dur+'小时',style:'font-weight:600'}));
+  display.appendChild(el('span',{text:' | 目标 '+goal+'h → '+diffText,style:'color:'+diffColor+';margin-left:6px'}));
 }
 
 function saveSleep(){
   var d=document.getElementById('sleepDate').value;
   if(!d){toast('请选择日期');return}
   if(!document.getElementById('sleepStart').value||!document.getElementById('sleepEnd').value){toast('请填写入睡和起床时间');return}
-  var rec={date:d,start:document.getElementById('sleepStart').value,end:document.getElementById('sleepEnd').value,depth:sleepDepth,quality:sleepQuality?parseInt(sleepQuality):0,note:document.getElementById('sleepNote').value};
+  var rec={date:d,start:document.getElementById('sleepStart').value,end:document.getElementById('sleepEnd').value,depth:sleepDepth,quality:sleepQuality?parseInt(sleepQuality):0,note:document.getElementById('sleepNote').value,type:sleepType||'night',tags:sleepSelectedTags.slice()};
+  var periodEl=document.getElementById('sleepPeriod');
+  if(periodEl) rec.periodPhase=periodEl.value;
   rec.duration=calcSleepDur(rec.start,rec.end);
   var list=load('sleepList',[]);
-  var idx=list.findIndex(function(x){return x.date===d});
+  var idx=list.findIndex(function(x){return x.date===d&&(x.type||'night')===(rec.type||'night')});
   if(idx>=0)list[idx]=rec;else list.push(rec);
   list.sort(function(a,b){return a.date>b.date?1:-1});
   save('sleepList',list);
   toast('已保存');
   document.getElementById('sleepNote').value='';
+  sleepSelectedTags=[];
   renderSleep();
 }
 
@@ -1551,32 +1652,59 @@ function renderSleep(){
   var histEl=document.getElementById('sleepHistory');
   if(!statsEl)return;
 
+  var goal=load('sleepGoal',8);
+  var nightList=list.filter(function(x){return (x.type||'night')==='night'});
+  var napList=list.filter(function(x){return x.type==='nap'});
+
   if(!list.length){
     statsEl.innerHTML='';
-    statsEl.appendChild(makeStatItem('0h','日均睡眠'));
+    statsEl.appendChild(makeStatItem('0h','夜间日均'));
+    statsEl.appendChild(makeStatItem('0h','午休日均'));
+    statsEl.appendChild(makeStatItem('0/'+goal+'h','目标对比'));
     statsEl.appendChild(makeStatItem('0','记录天数'));
-    statsEl.appendChild(makeStatItem('--','作息规律'));
-    statsEl.appendChild(makeStatItem('0','平均评分'));
     chartEl.innerHTML='';
     histEl.innerHTML='';
     histEl.appendChild(el('div',{className:'empty',text:'暂无记录'}));
     return;
   }
 
-  var avgDur=Math.round(list.reduce(function(s,x){return s+x.duration},0)/list.length*10)/10;
-  var avgQ=Math.round(list.reduce(function(s,x){return s+(x.quality||0)},0)/list.length*10)/10;
-  var startTimes=list.map(function(x){var p=x.start.split(':').map(Number);return p[0]*60+p[1]});
-  var meanH=startTimes.reduce(function(a,b){return a+b},0)/startTimes.length;
-  var std=Math.sqrt(startTimes.reduce(function(s,v){return s+Math.pow(v-meanH,2)},0)/startTimes.length);
+  var nightAvg=nightList.length?Math.round(nightList.reduce(function(s,x){return s+x.duration},0)/nightList.length*10)/10:0;
+  var napAvg=napList.length?Math.round(napList.reduce(function(s,x){return s+x.duration},0)/napList.length*10)/10:0;
+  var lastNight=nightList.length?nightList[nightList.length-1]:null;
+  var lastDur=lastNight?lastNight.duration:0;
+
+  var avgQ=nightList.length?Math.round(nightList.reduce(function(s,x){return s+(x.quality||0)},0)/nightList.length*10)/10:0;
+
+  // 作息波动检测
+  var recent7=nightList.slice(-7);
+  var startTimes=recent7.map(function(x){var p=x.start.split(':').map(Number);return p[0]*60+p[1]});
+  var meanH=startTimes.length?startTimes.reduce(function(a,b){return a+b},0)/startTimes.length:0;
+  var std=startTimes.length?Math.sqrt(startTimes.reduce(function(s,v){return s+Math.pow(v-meanH,2)},0)/startTimes.length):0;
   var regularity=std<30?'规律':(std<60?'较规律':'不规律');
 
+  // 熬夜检测
+  var lateNights=recent7.filter(function(x){var h=parseInt(x.start.split(':')[0]);return h>=23||h<1}).length;
+  var sleepGoalDiff=Math.round((lastDur-goal)*10)/10;
+
   statsEl.innerHTML='';
-  statsEl.appendChild(makeStatItem(avgDur+'h','日均睡眠'));
-  statsEl.appendChild(makeStatItem(list.length+'','记录天数'));
-  statsEl.appendChild(makeStatItem(regularity,'作息规律'));
+  statsEl.appendChild(makeStatItem(nightAvg+'h','夜间日均'));
+  statsEl.appendChild(makeStatItem(napAvg+'h','午休日均'));
+  var goalStat=makeStatItem(lastDur+'/'+goal+'h','昨夜/目标');
+  if(sleepGoalDiff<0) goalStat.querySelector('.v').style.color='#f0a050';
+  statsEl.appendChild(goalStat);
   statsEl.appendChild(makeStatItem(avgQ+'','平均评分'));
 
-  var recent=list.slice(-7);
+  // 作息波动提醒
+  if(regularity==='不规律'||lateNights>=3){
+    var warn=el('div',{className:'insight',style:'border-left-color:#f0a050;margin-top:10px'});
+    var warnText='⚠️ 温和提醒：';
+    if(regularity==='不规律') warnText+='近一周入睡时间波动较大，建议固定就寝时间。';
+    if(lateNights>=3) warnText+='本周熬夜'+lateNights+'次，长期熬夜会影响第二天学习效率。';
+    warn.appendChild(el('span',{text:warnText}));
+    statsEl.appendChild(warn);
+  }
+
+  var recent=nightList.slice(-7);
   var maxDur=Math.max.apply(null,recent.map(function(x){return x.duration}).concat([1]));
   chartEl.innerHTML='';
   recent.forEach(function(x){
@@ -1593,14 +1721,15 @@ function renderSleep(){
   // AI analysis
   insightEl.innerHTML='';
   var analysis='';
-  if(avgDur<6){analysis+='<p><b>睡眠不足：</b>日均仅'+avgDur+'小时，低于推荐的7-8小时。</p>'}
-  else if(avgDur>9){analysis+='<p><b>睡眠偏长：</b>日均'+avgDur+'小时，可能反映睡眠质量差。</p>'}
-  else{analysis+='<p><b>睡眠时长合理：</b>日均'+avgDur+'小时，符合健康标准。</p>'}
+  if(nightAvg>0&&nightAvg<6){analysis+='<p><b>睡眠不足：</b>夜间日均仅'+nightAvg+'小时，低于推荐的7-8小时。睡眠＜6小时可能导致第二天英语和学习效率下降。</p>'}
+  else if(nightAvg>9){analysis+='<p><b>睡眠偏长：</b>夜间日均'+nightAvg+'小时，可能反映睡眠质量差。</p>'}
+  else if(nightAvg>0){analysis+='<p><b>睡眠时长合理：</b>夜间日均'+nightAvg+'小时，符合健康标准。</p>'}
   if(regularity==='不规律'){analysis+='<p><b>作息不规律：</b>入睡时间波动大，建议固定就寝时间。</p>'}
-  else{analysis+='<p><b>作息'+regularity+'：</b>入睡时间较稳定。</p>'}
-  if(avgQ<3){analysis+='<p><b>质量偏低：</b>自评'+avgQ+'分，建议睡前避免蓝光、减少咖啡因。</p>'}
-  else{analysis+='<p><b>质量良好：</b>自评'+avgQ+'分，继续保持。</p>'}
-  analysis+='<p style="margin-top:6px;color:var(--text-2);font-size:12px">📌 建议：保持固定作息；睡前1小时远离屏幕；白天适量运动；卧室温度18-22℃为宜。</p>';
+  else if(nightAvg>0){analysis+='<p><b>作息'+regularity+'：</b>入睡时间较稳定。</p>'}
+  if(nightAvg>0&&avgQ<3){analysis+='<p><b>质量偏低：</b>自评'+avgQ+'分，失眠可能影响表达练习状态，建议睡前避免蓝光、减少咖啡因。</p>'}
+  else if(nightAvg>0){analysis+='<p><b>质量良好：</b>自评'+avgQ+'分，继续保持。</p>'}
+  if(napAvg>0) analysis+='<p><b>午休记录：</b>日均午休'+napAvg+'小时，适度午休有助于下午学习。</p>';
+  analysis+='<p style="margin-top:6px;color:var(--text-2);font-size:12px">📌 长期建议：保持固定作息；睡前1小时远离屏幕；白天适量运动；卧室温度18-22℃。睡眠＜6小时→第二天学习效率可能下降；失眠→表达练习状态变差。</p>';
   insightEl.innerHTML='<span class="ic">💡</span>'+analysis;
 
   // History
@@ -1613,20 +1742,65 @@ function renderSleep(){
     top.style.display='flex';
     top.style.justifyContent='space-between';
     top.style.alignItems='center';
-    top.appendChild(el('b',{text:x.date}));
-    var badge=el('span',{className:'badge info',text:x.duration+'h'});
-    top.appendChild(badge);
+    var typeTag=(x.type==='nap')?'☀️ 午休':'🌙 夜间';
+    top.appendChild(el('b',{text:typeTag+' '+x.date}));
+    var topRight=el('div',{style:'display:flex;align-items:center;gap:6px'});
+    topRight.appendChild(el('span',{className:'badge info',text:x.duration+'h'}));
+    // 编辑按钮
+    var editBtn=el('button',{className:'ghost sm',text:'编辑',style:'font-size:11px;padding:3px 8px',onclick:function(){editSleep(x)}});
+    topRight.appendChild(editBtn);
+    // 删除按钮
+    var delBtn=el('button',{className:'ghost sm',text:'🗑️',style:'font-size:11px;padding:3px 8px',onclick:function(){deleteSleep(x)}});
+    topRight.appendChild(delBtn);
+    top.appendChild(topRight);
     d.appendChild(top);
     var m=el('div',{className:'muted'});
     m.textContent='入睡 '+x.start+' → 起床 '+x.end+' | 深浅: '+(x.depth||'未记录')+' | '+(q||'未评分');
     d.appendChild(m);
+    if(x.tags&&x.tags.length){
+      var tagSpan=el('div',{style:'margin-top:3px'});
+      x.tags.forEach(function(t){tagSpan.appendChild(el('span',{className:'badge warn',text:t,style:'margin-right:4px;font-size:10px'}))});
+      d.appendChild(tagSpan);
+    }
+    if(x.periodPhase){
+      d.appendChild(el('div',{className:'muted',text:'🌸 生理阶段：'+x.periodPhase}));
+    }
     if(x.note){
-      var n=el('div',{className:'muted'});
-      n.textContent='📝 '+x.note;
-      d.appendChild(n);
+      d.appendChild(el('div',{className:'muted',text:'📝 '+x.note}));
     }
     histEl.appendChild(d);
   });
+}
+
+function editSleep(rec){
+  document.getElementById('sleepDate').value=rec.date;
+  document.getElementById('sleepStart').value=rec.start;
+  document.getElementById('sleepEnd').value=rec.end;
+  document.getElementById('sleepNote').value=rec.note||'';
+  if(rec.tags) sleepSelectedTags=rec.tags.slice();
+  else sleepSelectedTags=[];
+  // 更新标签选中状态
+  var tagDiv=document.getElementById('sleepTags');
+  if(tagDiv){
+    tagDiv.querySelectorAll('.level-btn').forEach(function(b){
+      if(rec.tags&&rec.tags.indexOf(b.dataset.v)>=0) b.classList.add('active');
+      else b.classList.remove('active');
+    });
+  }
+  updateSleepDur();
+  toast('已加载记录，修改后保存即可');
+  document.getElementById('sleepDate').scrollIntoView({behavior:'smooth'});
+}
+
+function deleteSleep(rec){
+  var list=load('sleepList',[]);
+  var idx=list.findIndex(function(x){return x.date===rec.date&&x.start===rec.start&&(x.type||'night')===(rec.type||'night')});
+  if(idx>=0){
+    list.splice(idx,1);
+    save('sleepList',list);
+    toast('已删除');
+    renderSleep();
+  }
 }
 
 /* ========== Period ========== */
