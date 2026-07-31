@@ -326,7 +326,7 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
       <span class="nav-icon">📝</span><span class="nav-label">今日复盘</span>
     </div>
     <div class="nav-item" data-view="expression" onclick="showView('expression')">
-      <span class="nav-icon">🎙️</span><span class="nav-label">表达练习</span>
+      <span class="nav-icon">🎙️</span><span class="nav-label">表达</span>
     </div>
     <div class="nav-item" data-view="settings" onclick="showView('settings')">
       <span class="nav-icon">⚙️</span><span class="nav-label">个性化设置</span>
@@ -495,7 +495,7 @@ var viewTitles={
   'english-read':'英语学习 · 阅读',
   'todo':'今日待办',
   'review':'今日复盘',
-  'expression':'表达练习',
+  'expression':'表达',
   'settings':'个性化设置'
 };
 
@@ -938,7 +938,9 @@ function renderDashboard(c){
     {icon:'💰',label:'财务',view:'finance'},
     {icon:'📚',label:'英语',view:'english'},
     {icon:'✅',label:'待办',view:'todo'},
-    {icon:'📝',label:'复盘',view:'review'}
+    {icon:'📝',label:'复盘',view:'review'},
+    {icon:'🎙️',label:'表达',view:'expression'},
+    {icon:'⚙️',label:'设置',view:'settings'}
   ];
   shortcuts.forEach(function(s){
     var card=el('button',{className:'quick-card',onclick:function(){showView(s.view)}});
@@ -947,23 +949,6 @@ function renderDashboard(c){
     qg.appendChild(card);
   });
   c.appendChild(qg);
-
-  // Expression practice full-width card
-  var exprCard=el('button',{className:'quick-card',onclick:function(){showView('expression')},style:'display:flex;flex-direction:row;align-items:center;gap:12px;text-align:left;padding:16px 18px'});
-  exprCard.appendChild(el('span',{className:'qc-icon',text:'🎙️',style:'font-size:28px;margin:0'}));
-  var exprLabel=el('div',{style:'flex:1'});
-  exprLabel.appendChild(el('div',{style:'font-size:15px;font-weight:600',text:'表达练习'}));
-  exprLabel.appendChild(el('div',{className:'muted',text:'即兴话题 · 录音打卡 · 反思复盘'}));
-  exprCard.appendChild(exprLabel);
-  exprCard.appendChild(el('span',{text:'›',style:'font-size:20px;color:var(--text-3)'}));
-  c.appendChild(exprCard);
-
-  // Settings full-width card
-  var settCard=el('button',{className:'quick-card',onclick:function(){showView('settings')},style:'display:flex;flex-direction:row;align-items:center;gap:12px;text-align:left;padding:16px 18px'});
-  settCard.appendChild(el('span',{className:'qc-icon',text:'⚙️',style:'font-size:28px;margin:0'}));
-  settCard.appendChild(el('div',{style:'flex:1',text:'设置'}));
-  settCard.appendChild(el('span',{text:'›',style:'font-size:20px;color:var(--text-3)'}));
-  c.appendChild(settCard);
 
   // Summary cards row
   var dg=el('div',{className:'dash-grid'});
@@ -2166,11 +2151,11 @@ function renderTodoView(c){
   card.appendChild(row);
   var btnRow=el('div',{style:'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap'});
   btnRow.appendChild(el('button',{text:'添加',onclick:addTodo}));
-  btnRow.appendChild(el('button',{className:'ghost',text:'+ 表达练习任务',onclick:function(){
+  btnRow.appendChild(el('button',{className:'ghost',text:'+ 表达任务',onclick:function(){
     var list=load('todoList',[]);
     list.push({id:Date.now(),text:'表达练习 10分钟',cat:'study',done:false,date:today()});
     save('todoList',list);
-    toast('已添加表达练习任务');
+    toast('已添加表达任务');
     renderTodoList();
   }}));
   card.appendChild(btnRow);
@@ -2579,7 +2564,7 @@ var expressionRecState={recording:false,startTime:0};
 var expressionCurrentTopic='';
 
 function renderExpressionView(c){
-  c.appendChild(makeBreadcrumb('表达练习'));
+  c.appendChild(makeBreadcrumb('表达'));
 
   /* --- Module 1: 即兴话题训练 --- */
   var topicCard=makeCard('即兴话题训练','🎲');
