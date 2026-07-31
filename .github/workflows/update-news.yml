@@ -1,0 +1,36 @@
+name: Update Hot News
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+jobs:
+  fetch-news:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch Baidu Hot News
+        run: |
+          python3 -c "
+          import re, json, urllib.request, datetime
+          url = 'https://top.baidu.com/board?tab=realtime'
+          req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+          html = urllib.request.urlopen(req, timeout=15).read().decode('utf-8')
+          data = re.findall(r'\"query\":\s*\"([^\"]+)\".*?\"hotScore\":\s*\"?(\d+)', html)
+          hot_list = [{'title': q, 'hot': h} for q, h in data[:30]]
+          social_list = hot_list[15:30]
+          result = {'hot': hot_list, 'social': social_list, 'updated': datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+          with open('news.json', 'w', encoding='utf-8') as f:
+              json.dump(result, f, ensure_ascii=False, indent=2)
+          print(f'Updated: {len(hot_list)} hot, {len(social_list)} social')
+          "
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add news.json
+          git diff --staged --quiet || git commit -m "auto: update hot news [skip ci]"
+          git push
