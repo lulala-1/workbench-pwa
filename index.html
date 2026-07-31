@@ -325,6 +325,9 @@ select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='ht
     <div class="nav-item" data-view="review" onclick="showView('review')">
       <span class="nav-icon">📝</span><span class="nav-label">今日复盘</span>
     </div>
+    <div class="nav-item" data-view="expression" onclick="showView('expression')">
+      <span class="nav-icon">🎙️</span><span class="nav-label">表达练习</span>
+    </div>
     <div class="nav-item" data-view="settings" onclick="showView('settings')">
       <span class="nav-icon">⚙️</span><span class="nav-label">个性化设置</span>
     </div>
@@ -417,7 +420,7 @@ function onDBReady(fn){if(db.ready)fn();else dbInitCallbacks.push(fn);}
 function initAll(){
   db.ready=true;
   if(!db.instance){dbInitCallbacks.forEach(function(fn){fn()});return}
-  var keys=['sleepList','periodList','expList','totalSavings','speakStage','todoList','reviewList','settings'];
+  var keys=['sleepList','periodList','expList','totalSavings','speakStage','todoList','reviewList','settings','expressionMaterials','expressionRecords','expressionReflections','expressionCheckins','expressionGoal'];
   var pending=keys.length;
   keys.forEach(function(key){
     var localVal=load(key,undefined);
@@ -492,6 +495,7 @@ var viewTitles={
   'english-read':'英语学习 · 阅读',
   'todo':'今日待办',
   'review':'今日复盘',
+  'expression':'表达练习',
   'settings':'个性化设置'
 };
 
@@ -527,6 +531,7 @@ function renderView(view){
     case 'english-read':renderReadView(c);break;
     case 'todo':renderTodoView(c);break;
     case 'review':renderReviewView(c);break;
+    case 'expression':renderExpressionView(c);break;
     case 'settings':renderSettingsView(c);break;
   }
 }
@@ -933,8 +938,7 @@ function renderDashboard(c){
     {icon:'💰',label:'财务',view:'finance'},
     {icon:'📚',label:'英语',view:'english'},
     {icon:'✅',label:'待办',view:'todo'},
-    {icon:'📝',label:'复盘',view:'review'},
-    {icon:'⚙️',label:'设置',view:'settings'}
+    {icon:'📝',label:'复盘',view:'review'}
   ];
   shortcuts.forEach(function(s){
     var card=el('button',{className:'quick-card',onclick:function(){showView(s.view)}});
@@ -943,6 +947,23 @@ function renderDashboard(c){
     qg.appendChild(card);
   });
   c.appendChild(qg);
+
+  // Expression practice full-width card
+  var exprCard=el('button',{className:'quick-card',onclick:function(){showView('expression')},style:'display:flex;flex-direction:row;align-items:center;gap:12px;text-align:left;padding:16px 18px'});
+  exprCard.appendChild(el('span',{className:'qc-icon',text:'🎙️',style:'font-size:28px;margin:0'}));
+  var exprLabel=el('div',{style:'flex:1'});
+  exprLabel.appendChild(el('div',{style:'font-size:15px;font-weight:600',text:'表达练习'}));
+  exprLabel.appendChild(el('div',{className:'muted',text:'即兴话题 · 录音打卡 · 反思复盘'}));
+  exprCard.appendChild(exprLabel);
+  exprCard.appendChild(el('span',{text:'›',style:'font-size:20px;color:var(--text-3)'}));
+  c.appendChild(exprCard);
+
+  // Settings full-width card
+  var settCard=el('button',{className:'quick-card',onclick:function(){showView('settings')},style:'display:flex;flex-direction:row;align-items:center;gap:12px;text-align:left;padding:16px 18px'});
+  settCard.appendChild(el('span',{className:'qc-icon',text:'⚙️',style:'font-size:28px;margin:0'}));
+  settCard.appendChild(el('div',{style:'flex:1',text:'设置'}));
+  settCard.appendChild(el('span',{text:'›',style:'font-size:20px;color:var(--text-3)'}));
+  c.appendChild(settCard);
 
   // Summary cards row
   var dg=el('div',{className:'dash-grid'});
@@ -2143,7 +2164,16 @@ function renderTodoView(c){
   fg2.appendChild(sel);
   row.appendChild(fg2);
   card.appendChild(row);
-  card.appendChild(el('button',{text:'添加',onclick:addTodo,style:'margin-top:8px'}));
+  var btnRow=el('div',{style:'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap'});
+  btnRow.appendChild(el('button',{text:'添加',onclick:addTodo}));
+  btnRow.appendChild(el('button',{className:'ghost',text:'+ 表达练习任务',onclick:function(){
+    var list=load('todoList',[]);
+    list.push({id:Date.now(),text:'表达练习 10分钟',cat:'study',done:false,date:today()});
+    save('todoList',list);
+    toast('已添加表达练习任务');
+    renderTodoList();
+  }}));
+  card.appendChild(btnRow);
   c.appendChild(card);
 
   // Filter
@@ -2240,6 +2270,7 @@ function renderTodoList(){
 
 /* ========== Review ========== */
 var reviewStars=0;
+var reviewTab='all';
 function renderReviewView(c){
   c.appendChild(makeBreadcrumb('今日复盘'));
 
@@ -2280,11 +2311,26 @@ function renderReviewView(c){
   card.appendChild(el('button',{text:'保存复盘',onclick:saveReview}));
   c.appendChild(card);
 
+  // Tab filter for history
+  var fc=el('div',{className:'todo-filter',id:'reviewFilter'});
+  var rFilters=[['all','全部'],['daily','日常复盘'],['expression','表达训练']];
+  rFilters.forEach(function(f){
+    var btn=el('span',{className:'filter-btn'+(reviewTab===f[0]?' active':''),text:f[1]});
+    btn.onclick=function(){
+      reviewTab=f[0];
+      document.querySelectorAll('#reviewFilter .filter-btn').forEach(function(b){b.classList.remove('active')});
+      btn.classList.add('active');
+      renderReviewHistory(reviewTab);
+    };
+    fc.appendChild(btn);
+  });
+  c.appendChild(fc);
+
   var hc=makeCard('历史复盘','📜');
   hc.appendChild(el('div',{id:'reviewHistory'}));
   c.appendChild(hc);
 
-  renderReviewHistory();
+  renderReviewHistory(reviewTab);
 }
 
 function saveReview(){
@@ -2299,13 +2345,69 @@ function saveReview(){
   list.sort(function(a,b){return a.date>b.date?-1:1});
   save('reviewList',list);
   toast('已保存复盘');
-  renderReviewHistory();
+  renderReviewHistory(reviewTab);
 }
 
-function renderReviewHistory(){
+function renderReviewHistory(tab){
   var hist=document.getElementById('reviewHistory');
   if(!hist)return;
   hist.innerHTML='';
+  if(tab==='expression'){
+    // Show expression practice related data
+    var records=load('expressionRecords',[]);
+    var reflections=load('expressionReflections',[]);
+    var checkins=load('expressionCheckins',[]);
+    var hasData=false;
+    // Checkins
+    var doneCheckins=checkins.filter(function(c){return c.done});
+    if(doneCheckins.length){
+      hist.appendChild(el('div',{className:'section-title',text:'🎯 打卡记录'}));
+      doneCheckins.slice().reverse().forEach(function(c){
+        var item=el('div',{className:'review-item'});
+        item.appendChild(el('b',{text:c.date}));
+        item.appendChild(el('span',{className:'badge ok',text:c.minutes+'分钟',style:'margin-left:8px'}));
+        hist.appendChild(item);
+      });
+      hasData=true;
+    }
+    // Records
+    if(records.length){
+      hist.appendChild(el('div',{className:'section-title',text:'🎤 录音记录'}));
+      records.slice().reverse().forEach(function(r){
+        var item=el('div',{className:'review-item'});
+        var top=el('div',{style:'display:flex;justify-content:space-between;align-items:center'});
+        top.appendChild(el('b',{text:r.date}));
+        top.appendChild(el('span',{className:'badge pink',text:r.category}));
+        item.appendChild(top);
+        var p=el('p');
+        p.style.marginTop='6px';
+        p.style.fontSize='13px';
+        p.textContent=r.topic+(r.comment?' · '+r.comment:'')+' · '+r.duration+'秒';
+        item.appendChild(p);
+        hist.appendChild(item);
+      });
+      hasData=true;
+    }
+    // Reflections
+    if(reflections.length){
+      hist.appendChild(el('div',{className:'section-title',text:'📝 表达反思'}));
+      reflections.slice().reverse().forEach(function(r){
+        var item=el('div',{className:'review-item'});
+        item.appendChild(el('b',{text:r.date}));
+        var p=el('p');
+        p.style.marginTop='6px';
+        p.style.fontSize='13px';
+        p.textContent='📍 '+r.scene+(r.problem?' | ❌ '+r.problem:'')+(r.better?' | ✅ '+r.better:'');
+        item.appendChild(p);
+        hist.appendChild(item);
+      });
+      hasData=true;
+    }
+    if(!hasData){
+      hist.appendChild(el('div',{className:'empty',text:'暂无表达训练记录'}));
+    }
+    return;
+  }
   var list=load('reviewList',[]);
   if(!list.length){
     hist.appendChild(el('div',{className:'empty',text:'暂无复盘记录'}));
@@ -2426,7 +2528,7 @@ function renderSettingsView(c){
   // Data management
   var dc=makeCard('数据管理','💾');
   dc.appendChild(el('p',{className:'muted',text:'所有数据保存在本地 IndexedDB 和 localStorage 中'}));
-  var keys=['sleepList','periodList','expList','totalSavings','speakStage','todoList','reviewList','settings'];
+  var keys=['sleepList','periodList','expList','totalSavings','speakStage','todoList','reviewList','settings','expressionMaterials','expressionRecords','expressionReflections','expressionCheckins','expressionGoal'];
   var counts='';
   keys.forEach(function(k){
     var v=load(k,k==='totalSavings'?0:[]);
@@ -2435,6 +2537,492 @@ function renderSettingsView(c){
   });
   dc.appendChild(el('div',{className:'muted',text:counts}));
   c.appendChild(dc);
+}
+
+/* ========== Expression Practice ========== */
+var expressionTopics={
+  '考研复试问答':[
+    '请介绍一下你自己，包括你的教育背景和研究兴趣。',
+    '你为什么选择报考我们学校/这个专业？',
+    '请谈谈你本科期间印象最深的一个科研项目。',
+    '你读过哪些与专业相关的书籍或论文？有什么收获？',
+    '你的毕业设计/论文做的是什么？遇到了哪些困难？',
+    '如果你没有被录取，你有什么打算？',
+    '你认为自己最大的优势和不足分别是什么？',
+    '请谈谈你对本专业目前研究热点之一的理解。'
+  ],
+  '日常沟通情景':[
+    '在聚会上你遇到了一个陌生人，如何自然地开启对话？',
+    '朋友向你倾诉工作压力，你如何安慰和建议？',
+    '你需要拒绝同事的不合理请求，如何委婉表达？',
+    '在餐厅就餐时菜品有问题，如何与服务员沟通？',
+    '面试官问你期望薪资，你如何回答？',
+    '你需要向房东提出维修请求，如何清晰说明问题？',
+    '在团队会议中你与同事意见不一致，如何表达？',
+    '你迟到了一个重要场合，如何得体地道歉？'
+  ],
+  '观点评述':[
+    '有人认为"人工智能会取代大部分人类工作"，你怎么看？',
+    '"年轻人应该先立业后成家"还是"先成家后立业"？谈谈你的观点。',
+    '如何看待社交媒体对人际关系的影响？',
+    '"成功主要靠天赋还是努力"？请阐述你的立场。',
+    '你认为大学教育应该更注重理论还是实践？',
+    '"知足常乐"和"不断进取"你更认同哪个？为什么？',
+    '如何看待"内卷"现象？有什么解决思路？',
+    '你认为远程办公是未来的趋势吗？利弊如何？'
+  ]
+};
+
+var expressionMediaRecorder=null;
+var expressionAudioChunks=[];
+var expressionRecState={recording:false,startTime:0};
+var expressionCurrentTopic='';
+
+function renderExpressionView(c){
+  c.appendChild(makeBreadcrumb('表达练习'));
+
+  /* --- Module 1: 即兴话题训练 --- */
+  var topicCard=makeCard('即兴话题训练','🎲');
+  var topicRow=el('div',{className:'row'});
+  var fgCat=el('div',{className:'form-group'});
+  fgCat.appendChild(el('label',{text:'选择分类'}));
+  var catSel=el('select',{id:'exprTopicCat'});
+  catSel.appendChild(el('option',{value:'all',text:'🎲 全部随机'}));
+  Object.keys(expressionTopics).forEach(function(cat){
+    catSel.appendChild(el('option',{value:cat,text:cat}));
+  });
+  fgCat.appendChild(catSel);
+  topicRow.appendChild(fgCat);
+  topicCard.appendChild(topicRow);
+  topicCard.appendChild(el('button',{text:'🎯 抽取话题',onclick:expressionDrawTopic,style:'margin-top:8px'}));
+  var topicDisplay=el('div',{className:'entry',id:'exprTopicDisplay',style:'margin-top:12px;min-height:20px'});
+  topicDisplay.appendChild(el('div',{className:'muted',text:'点击"抽取话题"开始练习'}));
+  topicCard.appendChild(topicDisplay);
+  // Recording UI
+  var recPanel=el('div',{className:'speak-panel',id:'exprRecPanel',style:'display:none'});
+  var micBtn=el('button',{className:'mic-btn',id:'exprMicBtn',text:'🎤',onclick:expressionToggleRecord});
+  recPanel.appendChild(micBtn);
+  recPanel.appendChild(el('div',{className:'muted',id:'exprRecStatus',text:'点击麦克风开始录音'}));
+  var commentInput=el('input',{type:'text',id:'exprComment',placeholder:'录音结束后，写下自我评语...',style:'margin-top:8px'});
+  recPanel.appendChild(commentInput);
+  recPanel.appendChild(el('button',{className:'sm',text:'保存录音',onclick:expressionSaveRecord,style:'margin-top:8px'}));
+  topicCard.appendChild(recPanel);
+  // Recording list
+  topicCard.appendChild(el('div',{className:'section-title',text:'本次话题录音'}));
+  topicCard.appendChild(el('div',{id:'exprRecList'}));
+  c.appendChild(topicCard);
+
+  /* --- Module 2: 素材摘抄库 --- */
+  var matCard=makeCard('素材摘抄库','📜');
+  var matTa=el('textarea',{id:'exprMatText',placeholder:'录入素材内容...',rows:'3'});
+  matCard.appendChild(matTa);
+  var matRow=el('div',{className:'row',style:'margin-top:8px'});
+  var matFg=el('div',{className:'form-group'});
+  matFg.appendChild(el('label',{text:'标签'}));
+  var matSel=el('select',{id:'exprMatTag'});
+  var matTags=['复试素材','社交话术','写作素材'];
+  matTags.forEach(function(t){matSel.appendChild(el('option',{value:t,text:t}))});
+  matFg.appendChild(matSel);
+  matRow.appendChild(matFg);
+  matCard.appendChild(matRow);
+  matCard.appendChild(el('button',{text:'保存素材',onclick:expressionSaveMaterial,style:'margin-top:8px'}));
+  matCard.appendChild(el('div',{className:'section-title',text:'已保存素材'}));
+  matCard.appendChild(el('div',{id:'exprMatList'}));
+  c.appendChild(matCard);
+
+  /* --- Module 3: 录音打卡记录 --- */
+  var recCard=makeCard('录音打卡记录','🎤');
+  recCard.appendChild(el('div',{id:'exprAllRecords'}));
+  c.appendChild(recCard);
+
+  /* --- Module 4: 表达反思本 --- */
+  var refCard=makeCard('表达反思本','📝');
+  var refFg1=el('div',{className:'form-group'});
+  refFg1.appendChild(el('label',{text:'发生场景'}));
+  refFg1.appendChild(el('input',{type:'text',id:'exprRefScene',placeholder:'如：小组讨论、面试、朋友聊天...'}));
+  refCard.appendChild(refFg1);
+  var refFg2=el('div',{className:'form-group'});
+  refFg2.appendChild(el('label',{text:'问题在哪'}));
+  refFg2.appendChild(el('textarea',{id:'exprRefProblem',placeholder:'描述当时表达的问题...',rows:'2'}));
+  refCard.appendChild(refFg2);
+  var refFg3=el('div',{className:'form-group'});
+  refFg3.appendChild(el('label',{text:'优化后的表达方式'}));
+  refFg3.appendChild(el('textarea',{id:'exprRefBetter',placeholder:'写下你觉得更好的表达...',rows:'2'}));
+  refCard.appendChild(refFg3);
+  refCard.appendChild(el('button',{text:'保存反思',onclick:expressionSaveReflection}));
+  refCard.appendChild(el('div',{className:'section-title',text:'历史反思'}));
+  refCard.appendChild(el('div',{id:'exprRefList'}));
+  c.appendChild(refCard);
+
+  /* --- Module 5: 每日练习打卡 --- */
+  var checkCard=makeCard('每日练习打卡','🎯');
+  var goal=load('expressionGoal',10);
+  var checkins=load('expressionCheckins',[]);
+  var todayStr=today();
+  var todayCheckin=checkins.find(function(c){return c.date===todayStr});
+  // Streak calculation
+  var streak=expressionCalcStreak(checkins);
+  var sg=el('div',{className:'summary-grid'});
+  sg.appendChild(makeStatItem(goal+'分钟','每日目标'));
+  sg.appendChild(makeStatItem(streak+'天','连续打卡'));
+  sg.appendChild(makeStatItem(checkins.length+'天','累计打卡'));
+  sg.appendChild(makeStatItem(todayCheckin&&todayCheckin.done?'已打卡':'未打卡','今日状态'));
+  checkCard.appendChild(sg);
+  // Goal editor
+  var goalRow=el('div',{className:'row',style:'margin-top:12px'});
+  var goalFg=el('div',{className:'form-group'});
+  goalFg.appendChild(el('label',{text:'修改目标（分钟）'}));
+  goalFg.appendChild(el('input',{type:'number',id:'exprGoalInput',value:String(goal),min:'1'}));
+  goalRow.appendChild(goalFg);
+  checkCard.appendChild(goalRow);
+  checkCard.appendChild(el('button',{className:'ghost sm',text:'更新目标',onclick:function(){
+    var v=parseInt(document.getElementById('exprGoalInput').value);
+    if(v>0){save('expressionGoal',v);toast('目标已更新');renderView('expression');}
+  },style:'margin-top:4px'}));
+  // Today checkin
+  var checkBtn=el('button',{
+    text:todayCheckin&&todayCheckin.done?'✅ 今日已完成打卡':'完成今日打卡',
+    onclick:function(){expressionToggleCheckin()},
+    style:'margin-top:10px'
+  });
+  if(todayCheckin&&todayCheckin.done)checkBtn.classList.add('ghost');
+  checkCard.appendChild(checkBtn);
+  // Recent checkins
+  checkCard.appendChild(el('div',{className:'section-title',text:'近期打卡记录'}));
+  checkCard.appendChild(el('div',{id:'exprCheckinList'}));
+  c.appendChild(checkCard);
+
+  /* --- Placeholder: upcoming features --- */
+  var phCard=makeCard('更多功能','🚀');
+  phCard.appendChild(el('div',{className:'muted',style:'padding:10px 0',text:'短文写作练习（即将上线）'}));
+  phCard.appendChild(el('div',{className:'muted',style:'padding:10px 0',text:'模拟问答文本记录（即将上线）'}));
+  c.appendChild(phCard);
+
+  // Render lists
+  expressionRenderRecords();
+  expressionRenderMaterials();
+  expressionRenderReflections();
+  expressionRenderCheckins();
+}
+
+/* --- Topic drawing --- */
+function expressionDrawTopic(){
+  var cat=document.getElementById('exprTopicCat').value;
+  var pool=[];
+  if(cat==='all'){
+    Object.keys(expressionTopics).forEach(function(k){pool=pool.concat(expressionTopics[k].map(function(t){return{topic:t,category:k}}))});
+  }else{
+    pool=expressionTopics[cat].map(function(t){return{topic:t,category:cat}});
+  }
+  var pick=pool[Math.floor(Math.random()*pool.length)];
+  expressionCurrentTopic=pick.topic;
+  var display=document.getElementById('exprTopicDisplay');
+  display.innerHTML='';
+  display.appendChild(el('div',{className:'badge pink',text:pick.category,style:'margin-bottom:6px'}));
+  display.appendChild(el('div',{style:'font-size:15px;font-weight:600',text:pick.topic}));
+  // Show recording panel
+  document.getElementById('exprRecPanel').style.display='block';
+  document.getElementById('exprComment').value='';
+  document.getElementById('exprRecStatus').textContent='点击麦克风开始录音';
+}
+
+/* --- Recording --- */
+function expressionToggleRecord(){
+  if(expressionRecState.recording){
+    expressionStopRecord();
+  }else{
+    expressionStartRecord();
+  }
+}
+
+function expressionStartRecord(){
+  if(!navigator.mediaRecorder){
+    toast('当前浏览器不支持录音功能');
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    expressionAudioChunks=[];
+    expressionMediaRecorder=new MediaRecorder(stream);
+    expressionMediaRecorder.ondataavailable=function(e){
+      if(e.data.size>0)expressionAudioChunks.push(e.data);
+    };
+    expressionMediaRecorder.onstop=function(){
+      var blob=new Blob(expressionAudioChunks,{type:'audio/webm'});
+      var reader=new FileReader();
+      reader.onloadend=function(){
+        expressionRecState.audioBase64=reader.result;
+        expressionRecState.duration=Math.round((Date.now()-expressionRecState.startTime)/1000);
+        document.getElementById('exprRecStatus').textContent='录音完成 '+expressionRecState.duration+'秒，可保存';
+        stream.getTracks().forEach(function(t){t.stop()});
+      };
+      reader.readAsDataURL(blob);
+    };
+    expressionMediaRecorder.start();
+    expressionRecState.recording=true;
+    expressionRecState.startTime=Date.now();
+    var micBtn=document.getElementById('exprMicBtn');
+    micBtn.classList.add('recording');
+    micBtn.textContent='⏹';
+    document.getElementById('exprRecStatus').textContent='录音中... 点击停止';
+  }).catch(function(){
+    toast('无法访问麦克风，请检查权限');
+  });
+}
+
+function expressionStopRecord(){
+  if(expressionMediaRecorder&&expressionMediaRecorder.state!=='inactive'){
+    expressionMediaRecorder.stop();
+  }
+  expressionRecState.recording=false;
+  var micBtn=document.getElementById('exprMicBtn');
+  micBtn.classList.remove('recording');
+  micBtn.textContent='🎤';
+}
+
+function expressionSaveRecord(){
+  if(!expressionCurrentTopic){toast('请先抽取话题');return}
+  if(!expressionRecState.audioBase64){toast('请先录音');return}
+  var comment=document.getElementById('exprComment').value.trim();
+  var records=load('expressionRecords',[]);
+  records.push({
+    id:Date.now(),
+    date:today(),
+    topic:expressionCurrentTopic,
+    category:document.getElementById('exprTopicCat').value==='all'?'随机':document.getElementById('exprTopicCat').value,
+    comment:comment,
+    audioBase64:expressionRecState.audioBase64,
+    duration:expressionRecState.duration||0
+  });
+  save('expressionRecords',records);
+  toast('录音已保存');
+  expressionRecState.audioBase64=null;
+  expressionRecState.duration=0;
+  document.getElementById('exprComment').value='';
+  document.getElementById('exprRecStatus').textContent='已保存，可继续录音';
+  expressionRenderRecords();
+}
+
+function expressionRenderRecords(){
+  // Render in topic card
+  var listEl=document.getElementById('exprRecList');
+  if(listEl){
+    var records=load('expressionRecords',[]);
+    var todayRecords=records.filter(function(r){return r.date===today()});
+    listEl.innerHTML='';
+    if(!todayRecords.length){
+      listEl.appendChild(el('div',{className:'empty',text:'今日暂无录音'}));
+    }else{
+      todayRecords.slice().reverse().forEach(function(r){
+        listEl.appendChild(expressionMakeRecordItem(r));
+      });
+    }
+  }
+  // Render in all-records card
+  var allEl=document.getElementById('exprAllRecords');
+  if(allEl){
+    var allRecords=load('expressionRecords',[]);
+    allEl.innerHTML='';
+    if(!allRecords.length){
+      allEl.appendChild(el('div',{className:'empty',text:'暂无录音记录'}));
+      return;
+    }
+    var sorted=allRecords.slice().sort(function(a,b){return b.date>a.date?1:-1});
+    // Group by date
+    var grouped={};
+    sorted.forEach(function(r){
+      if(!grouped[r.date])grouped[r.date]=[];
+      grouped[r.date].push(r);
+    });
+    Object.keys(grouped).forEach(function(date){
+      var dateDiv=el('div',{className:'section-title',text:date});
+      allEl.appendChild(dateDiv);
+      grouped[date].forEach(function(r){
+        allEl.appendChild(expressionMakeRecordItem(r));
+      });
+    });
+  }
+}
+
+function expressionMakeRecordItem(r){
+  var item=el('div',{className:'entry'});
+  var top=el('div',{style:'display:flex;justify-content:space-between;align-items:flex-start'});
+  var left=el('div',{style:'flex:1'});
+  left.appendChild(el('div',{style:'font-weight:600;font-size:13px',text:r.topic}));
+  var meta=el('div',{className:'meta'});
+  meta.textContent=r.category+' · '+r.duration+'秒'+(r.comment?' · '+r.comment:'');
+  left.appendChild(meta);
+  top.appendChild(left);
+  // Play button
+  var playBtn=el('button',{className:'play-btn',text:'▶ 播放',onclick:function(){
+    if(r.audioBase64){
+      var au=new Audio(r.audioBase64);
+      au.play();
+    }
+  }});
+  top.appendChild(playBtn);
+  item.appendChild(top);
+  // Delete button
+  var delBtn=el('button',{className:'sm danger',text:'删除',onclick:function(){expressionDeleteRecord(r.id)},style:'margin-top:6px'});
+  item.appendChild(delBtn);
+  return item;
+}
+
+function expressionDeleteRecord(id){
+  var records=load('expressionRecords',[]);
+  records=records.filter(function(r){return r.id!==id});
+  save('expressionRecords',records);
+  toast('已删除');
+  expressionRenderRecords();
+}
+
+/* --- Materials --- */
+function expressionSaveMaterial(){
+  var text=document.getElementById('exprMatText').value.trim();
+  var tag=document.getElementById('exprMatTag').value;
+  if(!text){toast('请输入素材内容');return}
+  var list=load('expressionMaterials',[]);
+  list.push({id:Date.now(),date:today(),text:text,tag:tag});
+  save('expressionMaterials',list);
+  toast('已保存');
+  document.getElementById('exprMatText').value='';
+  expressionRenderMaterials();
+}
+
+function expressionDeleteMaterial(id){
+  var list=load('expressionMaterials',[]);
+  list=list.filter(function(m){return m.id!==id});
+  save('expressionMaterials',list);
+  expressionRenderMaterials();
+}
+
+function expressionRenderMaterials(){
+  var listEl=document.getElementById('exprMatList');
+  if(!listEl)return;
+  var list=load('expressionMaterials',[]);
+  listEl.innerHTML='';
+  if(!list.length){
+    listEl.appendChild(el('div',{className:'empty',text:'暂无素材'}));
+    return;
+  }
+  list.slice().reverse().forEach(function(m){
+    var item=el('div',{className:'entry'});
+    var top=el('div',{style:'display:flex;justify-content:space-between;align-items:flex-start'});
+    var left=el('div',{style:'flex:1'});
+    left.appendChild(el('span',{className:'badge pink',text:m.tag}));
+    left.appendChild(el('div',{style:'margin-top:4px;font-size:13px',text:m.text}));
+    left.appendChild(el('div',{className:'meta',text:m.date}));
+    top.appendChild(left);
+    top.appendChild(el('button',{className:'sm danger',text:'删除',onclick:function(){expressionDeleteMaterial(m.id)}}));
+    item.appendChild(top);
+    listEl.appendChild(item);
+  });
+}
+
+/* --- Reflections --- */
+function expressionSaveReflection(){
+  var scene=document.getElementById('exprRefScene').value.trim();
+  var problem=document.getElementById('exprRefProblem').value.trim();
+  var better=document.getElementById('exprRefBetter').value.trim();
+  if(!scene){toast('请填写发生场景');return}
+  var list=load('expressionReflections',[]);
+  list.push({id:Date.now(),date:today(),scene:scene,problem:problem,better:better});
+  save('expressionReflections',list);
+  toast('已保存反思');
+  document.getElementById('exprRefScene').value='';
+  document.getElementById('exprRefProblem').value='';
+  document.getElementById('exprRefBetter').value='';
+  expressionRenderReflections();
+}
+
+function expressionDeleteReflection(id){
+  var list=load('expressionReflections',[]);
+  list=list.filter(function(r){return r.id!==id});
+  save('expressionReflections',list);
+  expressionRenderReflections();
+}
+
+function expressionRenderReflections(){
+  var listEl=document.getElementById('exprRefList');
+  if(!listEl)return;
+  var list=load('expressionReflections',[]);
+  listEl.innerHTML='';
+  if(!list.length){
+    listEl.appendChild(el('div',{className:'empty',text:'暂无反思记录'}));
+    return;
+  }
+  list.slice().reverse().forEach(function(r){
+    var item=el('div',{className:'entry'});
+    var top=el('div',{style:'display:flex;justify-content:space-between;align-items:flex-start'});
+    var left=el('div',{style:'flex:1'});
+    left.appendChild(el('div',{className:'meta',text:r.date}));
+    left.appendChild(el('div',{style:'margin-top:4px',text:'📍 '+r.scene}));
+    if(r.problem)left.appendChild(el('div',{style:'font-size:13px;color:var(--err)',text:'❌ '+r.problem}));
+    if(r.better)left.appendChild(el('div',{style:'font-size:13px;color:var(--ok)',text:'✅ '+r.better}));
+    top.appendChild(left);
+    top.appendChild(el('button',{className:'sm danger',text:'删除',onclick:function(){expressionDeleteReflection(r.id)}}));
+    item.appendChild(top);
+    listEl.appendChild(item);
+  });
+}
+
+/* --- Checkins --- */
+function expressionCalcStreak(checkins){
+  if(!checkins.length)return 0;
+  var done=checkins.filter(function(c){return c.done}).map(function(c){return c.date}).sort();
+  if(!done.length)return 0;
+  var streak=0;
+  var checkDate=new Date(today());
+  // If today not done, start from yesterday
+  var todayStr=today();
+  if(done.indexOf(todayStr)===-1){
+    checkDate.setDate(checkDate.getDate()-1);
+  }
+  while(true){
+    var ds=checkDate.getFullYear()+'-'+pad(checkDate.getMonth()+1)+'-'+pad(checkDate.getDate());
+    if(done.indexOf(ds)>=0){
+      streak++;
+      checkDate.setDate(checkDate.getDate()-1);
+    }else{
+      break;
+    }
+  }
+  return streak;
+}
+
+function expressionToggleCheckin(){
+  var checkins=load('expressionCheckins',[]);
+  var todayStr=today();
+  var idx=checkins.findIndex(function(c){return c.date===todayStr});
+  var goal=load('expressionGoal',10);
+  if(idx>=0){
+    checkins[idx].done=!checkins[idx].done;
+    checkins[idx].minutes=goal;
+  }else{
+    checkins.push({date:todayStr,minutes:goal,done:true});
+  }
+  save('expressionCheckins',checkins);
+  toast('已打卡');
+  renderView('expression');
+}
+
+function expressionRenderCheckins(){
+  var listEl=document.getElementById('exprCheckinList');
+  if(!listEl)return;
+  var list=load('expressionCheckins',[]);
+  listEl.innerHTML='';
+  var done=list.filter(function(c){return c.done});
+  if(!done.length){
+    listEl.appendChild(el('div',{className:'empty',text:'暂无打卡记录'}));
+    return;
+  }
+  done.slice().reverse().slice(0,10).forEach(function(c){
+    var item=el('div',{className:'list-item'});
+    var top=el('div',{style:'display:flex;justify-content:space-between;align-items:center'});
+    top.appendChild(el('b',{text:c.date}));
+    top.appendChild(el('span',{className:'badge ok',text:c.minutes+'分钟'}));
+    item.appendChild(top);
+    listEl.appendChild(item);
+  });
 }
 
 /* ========== Init ========== */
