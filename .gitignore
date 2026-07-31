@@ -5,3 +5,5 @@ workbench-pwa.zip
 netlify-workbench.zip
 *.log
 __pycache__/
+build_new.py
+index.html.bak.*
