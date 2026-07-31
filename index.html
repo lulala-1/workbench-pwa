@@ -1126,6 +1126,12 @@ function renderOverview(c){
   var reviewList=load('reviewList',[]);
   var todayReview=reviewList.find(function(r){return r.date===todayStr});
 
+  // 表达练习数据
+  var exprCheckins=load('expressionCheckins',[]);
+  var todayExpr=exprCheckins.find(function(ch){return ch.date===todayStr});
+  var exprRecords=load('expressionRecords',[]);
+  var todayExprRecords=exprRecords.filter(function(r){return r.date===todayStr}).length;
+
   // 可点击的统计卡片
   function makeClickableStat(value,label,view,done){
     var d=el('div',{className:'item',onclick:function(){showView(view)},style:'cursor:pointer;transition:.2s'});
@@ -1145,6 +1151,12 @@ function renderOverview(c){
   sg.appendChild(makeClickableStat(todayReview?todayReview.stars+'⭐':'暂无记录','今日复盘','review',todayReview?true:false));
   card.appendChild(sg);
 
+  // 表达练习统计行
+  var exprRow=el('div',{className:'summary-grid',style:'margin-top:10px'});
+  exprRow.appendChild(makeClickableStat(todayExpr&&todayExpr.done?'✅ 已打卡':'未打卡','表达打卡','expression',todayExpr&&todayExpr.done?true:false));
+  exprRow.appendChild(makeClickableStat(todayExprRecords+'次','今日练习','expression',todayExprRecords>0));
+  card.appendChild(exprRow);
+
   // 成长打卡简报
   var studyLog=load('studyLog',{});
   var engStreak=0;
@@ -1154,12 +1166,11 @@ function renderOverview(c){
     if((studyLog.wordsDate===eds)||(studyLog.readDate===eds)||(studyLog.listenDate===eds)||(studyLog.speakDate===eds)){engStreak++;ed.setDate(ed.getDate()-1);}
     else break;
   }
-  var exprCheckins=load('expressionCheckins',[]);
   var exprStreak=0;
   var ed2=new Date();
   while(true){
     var eds2=ed2.getFullYear()+'-'+pad(ed2.getMonth()+1)+'-'+pad(ed2.getDate());
-    if(exprCheckins.some(function(c){return c.date===eds2&&c.done})){exprStreak++;ed2.setDate(ed2.getDate()-1);}
+    if(exprCheckins.some(function(ch){return ch.date===eds2&&ch.done})){exprStreak++;ed2.setDate(ed2.getDate()-1);}
     else break;
   }
   var streakBar=el('div',{className:'streak-bar'});
@@ -1171,17 +1182,17 @@ function renderOverview(c){
   card.appendChild(streakBar);
   c.appendChild(card);
 
-  // Quick links — 调整排序，设置通栏
+  // 快捷功能 — 标准2列均等方格
   var lc=makeCard('快捷功能','⚡');
   var qg=el('div',{className:'quick-grid'});
   var links=[
+    {icon:'😴',label:'睡眠',view:'sleep'},
+    {icon:'🌸',label:'周期',view:'period'},
+    {icon:'💰',label:'财务',view:'finance'},
     {icon:'📚',label:'英语',view:'english'},
     {icon:'✅',label:'待办',view:'todo'},
     {icon:'📝',label:'复盘',view:'review'},
     {icon:'🎙️',label:'表达',view:'expression'},
-    {icon:'😴',label:'睡眠',view:'sleep'},
-    {icon:'🌸',label:'周期',view:'period'},
-    {icon:'💰',label:'财务',view:'finance'},
     {icon:'🔥',label:'热点',view:'news'}
   ];
   links.forEach(function(s){
@@ -1192,13 +1203,6 @@ function renderOverview(c){
   });
   lc.appendChild(qg);
   c.appendChild(lc);
-
-  // 设置通栏卡片
-  var settRow=el('button',{className:'quick-card',onclick:function(){showView('settings')},style:'display:flex;flex-direction:row;align-items:center;gap:12px;text-align:left;padding:14px 18px;width:100%'});
-  settRow.appendChild(el('span',{className:'qc-icon',text:'⚙️',style:'font-size:26px;margin:0'}));
-  settRow.appendChild(el('div',{style:'flex:1',text:'设置'}));
-  settRow.appendChild(el('span',{text:'›',style:'font-size:20px;color:var(--text-3)'}));
-  c.appendChild(settRow);
 }
 
 /* ========== News ========== */
