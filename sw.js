@@ -1,11 +1,11 @@
 // Service Worker - 个人全能工作台 PWA
-const CACHE_NAME = 'workbench-v11';
+const CACHE_NAME = 'workbench-v12';
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
+  './icon-192-v2.png',
+  './icon-512-v2.png',
   './news.json'
 ];
 
