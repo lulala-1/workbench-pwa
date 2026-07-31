@@ -177,6 +177,17 @@ button.danger{background:#fab1a0;color:#fff}
 .insight .ic{font-size:15px;margin-right:4px}
 .streak-bar{background:linear-gradient(135deg,rgba(152,216,200,.08),rgba(255,183,197,.06));border-left:3px solid var(--mint);padding:12px 14px;border-radius:8px;margin-top:10px}
 
+/* ===== News Row ===== */
+.news-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid rgba(152,216,200,.12);transition:.2s}
+.news-row:last-child{border-bottom:none}
+.news-row:hover{background:rgba(152,216,200,.04)}
+.news-left{flex:1;cursor:pointer;min-width:0}
+.news-title{font-size:14px;font-weight:500;color:var(--text);line-height:1.4}
+.news-meta{font-size:12px;color:var(--text-3);margin-top:3px}
+.star-btn{flex-shrink:0;width:36px;height:36px;border-radius:50%;border:none;background:rgba(152,216,200,.1);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.2s;padding:0}
+.star-btn:active{transform:scale(.9)}
+.star-btn.starred{background:rgba(255,183,197,.15)}
+
 /* ===== Word Card ===== */
 .word-card{background:rgba(152,216,200,.06);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px}
 .word-card .word{font-size:18px;font-weight:700;color:var(--mint)}
@@ -1223,7 +1234,7 @@ function renderNews(c){
   filterCard.appendChild(fg);
   c.appendChild(filterCard);
 
-  // 上区域：当日全网热点
+  // 当日全网热点
   var card=makeCard('当日全网热点','🔥');
   var refresh=el('button',{className:'sm ghost refresh-btn',text:'刷新',onclick:function(){loadNews()}});
   card.querySelector('h2').appendChild(refresh);
@@ -1232,8 +1243,8 @@ function renderNews(c){
   card.appendChild(hotNews);
   c.appendChild(card);
 
-  // 下区域：我的收藏素材
-  var favCard=makeCard('我的收藏素材','⭐');
+  // 我的收藏话题
+  var favCard=makeCard('我的收藏话题','⭐');
   var favList=el('div',{id:'favList'});
   favCard.appendChild(favList);
   c.appendChild(favCard);
@@ -1269,34 +1280,26 @@ function renderNewsList(){
   el1.innerHTML='';
   if(filtered.length){
     filtered.slice(0,20).forEach(function(x,i){
-      var d=el('div',{className:'news-item'});
-      d.style.padding='12px 0';
-      d.style.borderBottom='1px solid rgba(152,216,200,.15)';
-      d.style.cursor='pointer';
-      d.style.transition='.2s';
-      d.onmouseenter=function(){d.style.background='rgba(152,216,200,.06)'};
-      d.onmouseleave=function(){d.style.background=''};
-      // 标题可点击跳转
-      var titleLink=el('div',{style:'font-size:14px;font-weight:500;color:var(--text)',text:(i+1)+'. '+x.title});
-      titleLink.onclick=function(){openNewsDetail(x)};
-      d.appendChild(titleLink);
-      // 热度+分类
-      var meta=el('div',{style:'display:flex;gap:8px;align-items:center;margin-top:4px'});
-      meta.appendChild(el('span',{className:'muted',text:'🔥 '+x.hot}));
-      meta.appendChild(el('span',{className:'badge info',text:x.category,style:'font-size:10px'}));
-      var favBtn=el('span',{style:'font-size:16px;cursor:pointer;margin-left:auto',text:isFav(x.title)?'⭐':'☆'});
-      favBtn.onclick=function(e){e.stopPropagation();toggleFav(x)};
-      meta.appendChild(favBtn);
-      d.appendChild(meta);
+      // 每条热点：左侧内容 + 右侧收藏星星
+      var row=el('div',{className:'news-row'});
+      // 左侧内容区
+      var left=el('div',{className:'news-left',onclick:function(){openNewsDetail(x)}});
+      left.appendChild(el('div',{className:'news-title',text:(i+1)+'. '+x.title}));
+      left.appendChild(el('div',{className:'news-meta',text:'🔥 热度 '+x.hot}));
+      row.appendChild(left);
+      // 右侧收藏星星
+      var starred=isFav(x.title);
+      var star=el('button',{className:'star-btn'+(starred?' starred':''),text:starred?'⭐':'☆',onclick:function(e){e.stopPropagation();toggleFav(x)}});
+      row.appendChild(star);
       // 长按弹窗
       var pressTimer;
-      d.addEventListener('touchstart',function(){
+      row.addEventListener('touchstart',function(){
         pressTimer=setTimeout(function(){showNewsActionSheet(x)},500);
       });
-      d.addEventListener('touchend',function(){clearTimeout(pressTimer)});
-      d.addEventListener('touchmove',function(){clearTimeout(pressTimer)});
-      d.oncontextmenu=function(e){e.preventDefault();showNewsActionSheet(x)};
-      el1.appendChild(d);
+      row.addEventListener('touchend',function(){clearTimeout(pressTimer)});
+      row.addEventListener('touchmove',function(){clearTimeout(pressTimer)});
+      row.oncontextmenu=function(e){e.preventDefault();showNewsActionSheet(x)};
+      el1.appendChild(row);
     });
   }else{
     el1.appendChild(el('div',{className:'empty',text:'该分类暂无热点'}));
@@ -1336,22 +1339,19 @@ function renderFavList(){
   el2.innerHTML='';
   if(favs.length){
     favs.forEach(function(x,i){
-      var d=el('div',{className:'news-item'});
-      d.style.padding='12px 0';
-      d.style.borderBottom='1px solid rgba(152,216,200,.15)';
-      var title=el('div',{style:'font-size:14px;font-weight:500;cursor:pointer',text:'⭐ '+(i+1)+'. '+x.title});
-      title.onclick=function(){openNewsDetail(x)};
-      d.appendChild(title);
-      var meta=el('div',{style:'display:flex;gap:8px;align-items:center;margin-top:4px'});
-      if(x.note) meta.appendChild(el('span',{className:'muted',text:'📝 '+x.note}));
-      var delBtn=el('span',{style:'font-size:14px;cursor:pointer;margin-left:auto;color:var(--text-3)',text:'🗑️'});
-      delBtn.onclick=function(e){e.stopPropagation();toggleFav(x)};
-      meta.appendChild(delBtn);
-      d.appendChild(meta);
-      el2.appendChild(d);
+      var row=el('div',{className:'news-row'});
+      var left=el('div',{className:'news-left',onclick:function(){openNewsDetail(x)}});
+      left.appendChild(el('div',{className:'news-title',text:'⭐ '+(i+1)+'. '+x.title}));
+      var metaText='🔥 热度 '+x.hot;
+      if(x.note) metaText+=' · 📝 '+x.note;
+      left.appendChild(el('div',{className:'news-meta',text:metaText}));
+      row.appendChild(left);
+      var star=el('button',{className:'star-btn starred',text:'⭐',onclick:function(e){e.stopPropagation();toggleFav(x)}});
+      row.appendChild(star);
+      el2.appendChild(row);
     });
   }else{
-    el2.appendChild(el('div',{className:'empty',text:'暂无收藏，长按热点标题可收藏'}));
+    el2.appendChild(el('div',{className:'empty',text:'暂未收藏任何热点'}));
   }
 }
 
